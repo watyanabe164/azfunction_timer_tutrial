@@ -36,14 +36,15 @@ class TotalingTokenUsage:
             }
         }
 
-    def get_token_usages_group_by_appid(self, fetch_size: int)-> list:
-        start_datetime = datetime.strptime(f"2024-04-01 +09:00", "%Y-%m-%d %z")
-        end_datetime = datetime.strptime(f"2024-06-01 +09:00", "%Y-%m-%d %z")
+    def get_token_usages_group_by_appid(self, start_datetime: datetime, end_datetime: datetime, fetch_size: int)-> list:
 
-        cosmos_date_format = "%Y-%m-%d %H:%M:%S"
+        cosmos_date_format = "%Y-%m-%dT%H:%M:%S +09:00"
         sd = start_datetime.strftime(cosmos_date_format)
         ed = end_datetime.strftime(cosmos_date_format)
-        
+
+        logging.info(f"to time:{ed}")
+        logging.info(f"from time:{sd}")
+
         raw_data_list = self.container.query_items(
             enable_cross_partition_query=True,
             max_item_count=fetch_size,
