@@ -1,5 +1,7 @@
+import logging
 from azure.cosmos import CosmosClient
 from datetime import datetime, timedelta
+from decimal import ROUND_CEILING, Decimal
 import json
 
 
@@ -23,9 +25,20 @@ class TotalingTokenUsage:
         database_csv = cosmos_client_csv.get_database_client(cosmos_db_name)
         self.container_csv = database_csv.get_container_client(cosmos_container_name)
 
+        self.token_rate_map = {
+            "gpt35": {
+                "prompt": 0.148,
+                "completion": 0.296
+            },
+            "gpt4": {
+                "prompt": 1.48,
+                "completion": 2.96
+            }
+        }
+
     def get_token_usages_group_by_appid(self, fetch_size: int)-> list:
-        start_datetime = datetime.strptime(f"2024-04-27 +09:00", "%Y-%m-%d %z")
-        end_datetime = datetime.strptime(f"2024-04-29 +09:00", "%Y-%m-%d %z")
+        start_datetime = datetime.strptime(f"2024-04-01 +09:00", "%Y-%m-%d %z")
+        end_datetime = datetime.strptime(f"2024-06-01 +09:00", "%Y-%m-%d %z")
 
         cosmos_date_format = "%Y-%m-%d %H:%M:%S"
         sd = start_datetime.strftime(cosmos_date_format)
@@ -54,22 +67,50 @@ class TotalingTokenUsage:
             ]
         )
 
-        return raw_data_list
-
-        """
         totaling_data = {}
         for i, raw_data in enumerate(raw_data_list):
-            _id = raw_data["id"]
-            _sku = raw_data["sku"]
-            totaling_data.update(
-                {
-                    _id: {
-                        _sku: "ok"
-                    }
-                },
-            )                        
+            _app_id = raw_data["app_id"]
+            _model = raw_data["model"]
+            _usage = raw_data["usage"]
+            if _usage:
+                if _app_id in totaling_data:
+                    if _model in totaling_data[_app_id]:
+                        totaling_data[_app_id][_model]["prompt_tokens"] += _usage["prompt_tokens"]
+                        totaling_data[_app_id][_model]["completion_tokens"] += _usage["completion_tokens"]
+                    else:
+                        totaling_data[_app_id].update({_model: _usage})
+                else:
+                    totaling_data.update(
+                        {
+                            _app_id: {
+                                _model: _usage,
+                            }
+                        },
+                    )
+ 
         return totaling_data
+
+    def calc_token_usage_for_csv(self, model_name: str, completion_tokens: int, prompt_tokens: int) -> list:
+        """利用したtoken量から料金を計算する
+
+        Args:
+            model_name(str): 利用モデル名
+            completion_tokens(int): completion_token数
+            prompt_tokens(int): prompt_token数
+
+        Returns:
+            list: [ model_name, prompt_token数, prompt_token_rate, completion_token数, completion_token_rate ]
         """
+        if model_name not in self.token_rate_map:
+            return None
+        prompt_token_rate = self.token_rate_map[model_name]["prompt"]
+        completion_token_rate = self.token_rate_map[model_name]["completion"]
+        total_price = (prompt_tokens * prompt_token_rate / 1000) + (completion_tokens * completion_token_rate / 1000)
+        # 愚直に計算した値は小数を含むので繰り上げる
+        # 繰り上げなのは不足分が出ないようにするため、請求額は多くなるがapplicationあたり1円なので問題ないと判断
+        total_price = Decimal(str(total_price)).quantize(Decimal("1"), rounding=ROUND_CEILING)
+        return [model_name, prompt_tokens, prompt_token_rate, completion_tokens, completion_token_rate, total_price]
+
 
 class ClientsInfo:
     """クライアントシステム情報を取得するクラス"""
@@ -93,14 +134,15 @@ class ClientsInfo:
             max_item_count=fetch_size,
             query="""
                 select
-                    c.AppKey,
-                    c.AppName,
-                    c.AppId
+                    c.AppId,
+                    c.Division
                 from
                     chat_history as c
                 where
-                    c.AppKey != null
+                    c.AppId != null
                 """
         )
+        
+        app_id_division_map = {row["AppId"]: row["Division"] for row in raw_data_list}
 
-        return raw_data_list
+        return app_id_division_map
