@@ -89,12 +89,8 @@ class TotalingTokenUsage:
         Returns:
             list: [ model_name, prompt_token数, prompt_token_rate, completion_token数, completion_token_rate ]
         """
-        if model_name not in self.token_rate_map:
-            return None
-        prompt_token_rate = self.token_rate_map[model_name]["prompt"]
-        completion_token_rate = self.token_rate_map[model_name]["completion"]
         total_price = prompt_tokens + completion_tokens
-        return [model_name, prompt_tokens, prompt_token_rate, completion_tokens, completion_token_rate, total_price]
+        return [model_name, prompt_tokens, completion_tokens, total_price]
 
 
 class ClientsInfo:
