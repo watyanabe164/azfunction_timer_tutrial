@@ -8,11 +8,9 @@ from correct_token_usage import TotalingTokenUsage, ClientsInfo
 
 app = func.FunctionApp()
 
-@app.schedule(schedule="0 * * * * *", arg_name="myTimer", run_on_startup=True,
+@app.schedule(schedule="0 */5 * * * *", arg_name="myTimer", run_on_startup=True,
               use_monitor=False) 
 def timer_trigger(myTimer: func.TimerRequest) -> None:
-    if myTimer.past_due:
-        logging.info('The timer is past due!')
 
     try:
         ### メイン処理 ###
@@ -21,13 +19,12 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
         mackerel_key = os.getenv("MACKEREL_KEY")    # Mackerel APIキー
         current_time = time.time() # 取得時刻
         metric_time = int(current_time)  # Mackere投稿時の時刻
-
+        
         # Create to_datetime from current_time
         to_datetime = datetime.fromtimestamp(current_time)
 
         # Calculate 5 minutes before to_datetime
         time_delta = timedelta(minutes=5)
-#        time_delta = timedelta(days=1) # １日ずらしたいならこちら
         from_datetime = to_datetime - time_delta
 
         fetch_size = 100
@@ -36,7 +33,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
         results = usage_client.get_token_usages_group_by_appid(from_datetime, to_datetime, fetch_size)
 
-        clients_info = ClientsInfo(cosmos_url, cosmos_key, "mediator", "chat_history")
+        clients_info = ClientsInfo(cosmos_url, cosmos_key, "mediator", "clients")
         app_id_division_map = clients_info.get_clients_info(fetch_size)
 
         request_data = []
@@ -47,7 +44,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
                     request_data.append({
                         "name": f"dev_monthly_usage.{app_id_division_map.get(app_id, 'UNDEFINED')}_{app_id}_{model}",
                         "time": metric_time,
-                        "value": int(token_usage[-1])
+                        "value": float(token_usage[-1])
                     })
 
         logging.info("request_data is ......................................")

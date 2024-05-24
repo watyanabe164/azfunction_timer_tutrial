@@ -1,8 +1,6 @@
 import logging
 from azure.cosmos import CosmosClient
-from datetime import datetime, timedelta
-from decimal import ROUND_CEILING, Decimal
-import json
+from datetime import datetime
 
 
 class TotalingTokenUsage:
@@ -24,17 +22,6 @@ class TotalingTokenUsage:
         cosmos_client_csv = CosmosClient(cosmos_url, cosmos_key)
         database_csv = cosmos_client_csv.get_database_client(cosmos_db_name)
         self.container_csv = database_csv.get_container_client(cosmos_container_name)
-
-        self.token_rate_map = {
-            "gpt35": {
-                "prompt": 0.148,
-                "completion": 0.296
-            },
-            "gpt4": {
-                "prompt": 1.48,
-                "completion": 2.96
-            }
-        }
 
     def get_token_usages_group_by_appid(self, start_datetime: datetime, end_datetime: datetime, fetch_size: int)-> list:
 
@@ -106,10 +93,7 @@ class TotalingTokenUsage:
             return None
         prompt_token_rate = self.token_rate_map[model_name]["prompt"]
         completion_token_rate = self.token_rate_map[model_name]["completion"]
-        total_price = (prompt_tokens * prompt_token_rate / 1000) + (completion_tokens * completion_token_rate / 1000)
-        # 愚直に計算した値は小数を含むので繰り上げる
-        # 繰り上げなのは不足分が出ないようにするため、請求額は多くなるがapplicationあたり1円なので問題ないと判断
-        total_price = Decimal(str(total_price)).quantize(Decimal("1"), rounding=ROUND_CEILING)
+        total_price = prompt_tokens + completion_tokens
         return [model_name, prompt_tokens, prompt_token_rate, completion_tokens, completion_token_rate, total_price]
 
 
