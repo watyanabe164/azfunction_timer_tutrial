@@ -14,7 +14,10 @@ class TotalingTokenUsage:
             cosmos_key(str): 接続するCosmosDBのAPI KEY
             cosmos_db_name(str): 接続するCosmosDBのdatabase名
             cosmos_container_name(str): 接続するCosmosDBのcontainer名
-        """
+        """\
+
+
+
         cosmos_client = CosmosClient(cosmos_url, cosmos_key)
         database = cosmos_client.get_database_client(cosmos_db_name)
         self.container = database.get_container_client(cosmos_container_name)
@@ -24,11 +27,19 @@ class TotalingTokenUsage:
         self.container_csv = database_csv.get_container_client(cosmos_container_name)
 
     def get_token_usages_group_by_appid(self, start_datetime: datetime, end_datetime: datetime, fetch_size: int)-> list:
+#        start_datetime = datetime.strptime("2024-06-01T00:00:00 +09:00", "%Y-%m-%dT%H:%M:%S %z")
+#        end_datetime = start_datetime + timedelta(minutes=5)  # Add 5 minutes
 
-        cosmos_date_format = "%Y-%m-%dT%H:%M:%S +09:00"
+        cosmos_date_format = "%Y-%m-%dT%H:%M:%S +9:00"
         sd = start_datetime.strftime(cosmos_date_format)
         ed = end_datetime.strftime(cosmos_date_format)
 
+#        cosmos_date_format = "%Y-%m-%dT%H:%M:%S +09:00"
+
+#        sd = start_datetime.strftime(cosmos_date_format)
+#        ed = end_datetime.strftime(cosmos_date_format)
+
+        logging.info(f"start get_token_usages_group_by_appid for {sd} to {ed} is ......................................")    
         logging.info(f"to time:{ed}")
         logging.info(f"from time:{sd}")
 

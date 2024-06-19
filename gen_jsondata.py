@@ -12,11 +12,11 @@ output_filename = "format_data.json"
 time_interval = 1
 
 # 時間間隔あたりに作成するデータ数
-data_per_interval = 1
+data_per_interval = 2
 
 # 日付範囲
-start_date = datetime.datetime(2024, 5, 23, 0, 0, 0)
-end_date = datetime.datetime(2024, 6, 1, 0, 0, 0)
+start_date = datetime.datetime(2024, 6, 1, 0, 0, 0)
+end_date = datetime.datetime(2024, 7, 1, 0, 0, 0)
 
 # アプリIDリスト
 app_id_list = ["kobayashi_com", "yamaguchi_jp", "saito_com"]

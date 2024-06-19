@@ -30,7 +30,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
         # 集計期間ごとに処理を実行
         for interval_name, time_delta in time_intervals.items():
-            process_interval_data(metric_time, interval_name, env_name, fetch_size, cosmos_url,
+            process_interval_data(metric_time, time_delta, interval_name, env_name, fetch_size, cosmos_url,
                                  cosmos_key, mackerel_key)
 
     except Exception as e:
@@ -64,7 +64,7 @@ def timer_trigger_daily(myTimer: func.TimerRequest) -> None:
 
         # 集計期間ごとに処理を実行
         for interval_name, time_delta in time_intervals.items():
-            process_interval_data(metric_time, interval_name, env_name, fetch_size, cosmos_url,cosmos_key, mackerel_key)
+            process_interval_data(metric_time, time_delta, interval_name, env_name, fetch_size, cosmos_url,cosmos_key, mackerel_key)
 
     except Exception as e:
         logging.exception("トークン集計中にエラーが発生しました")
@@ -74,11 +74,12 @@ def timer_trigger_daily(myTimer: func.TimerRequest) -> None:
 
 
 
-def process_interval_data(metric_time, interval_name, env_name, fetch_size, cosmos_url, cosmos_key, mackerel_key):
+def process_interval_data(metric_time, time_delta, interval_name, env_name, fetch_size, cosmos_url, cosmos_key, mackerel_key):
     # 集計開始日時、集計終了日時の計算
-    start_datetime, end_datetime = calculate_interval_dates(metric_time, interval_name)
+    start_datetime, end_datetime = calculate_interval_dates(metric_time, time_delta, interval_name)
 
     # 指定した集計期間でのトークン使用量を取得
+    logging.info(f"start get_token_usages_group_by_appid for {start_datetime} to {end_datetime} is ......................................")    
     usage_client = TotalingTokenUsage(cosmos_url, cosmos_key, "mediator", "chat_history")
     results = usage_client.get_token_usages_group_by_appid(start_datetime, end_datetime, fetch_size)
 
@@ -86,7 +87,11 @@ def process_interval_data(metric_time, interval_name, env_name, fetch_size, cosm
     clients_info = ClientsInfo(cosmos_url, cosmos_key, "mediator", "chat_history")
     app_id_division_map = clients_info.get_clients_info(fetch_size)
 
+    logging.info(f"results for {interval_name} is ......................................")
+    logging.info(results)
+
     # クライアントシステム別×モデル別でトークン使用量を集計
+    # TODO:元々コスト計算のために作った監視の仕組みのはずなのに、いつの間にかコスト計算の処理をやめてるのは本末転倒な気がする。リアルタイム処理についてはコスト計算はいらないけど日次処理についてはキチンとコスト計算の考えを取り入れるべき
     request_data = []
     for app_id, usage_by_models in results.items():
         for model, usage in usage_by_models.items():
@@ -96,6 +101,12 @@ def process_interval_data(metric_time, interval_name, env_name, fetch_size, cosm
                     "name": f"{env_name}_{interval_name}_usage.{app_id_division_map.get(app_id, 'UNDEFINED')}_{app_id}_{model}",
                     "time": metric_time,
                     "value": float(token_usage[-1])
+                })
+            else:
+                request_data.append({
+                    "name": f"{env_name}_{interval_name}_usage.{app_id_division_map.get(app_id, 'UNDEFINED')}_{app_id}_{model}",
+                    "time": metric_time,
+                    "value": 0
                 })
 
     logging.info(f"request_data for {interval_name} is ......................................")
